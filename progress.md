@@ -19,3 +19,5 @@ create game 1 in a sub folder today and build the site about it, it can be abotu
 - Ran `$WEB_GAME_CLIENT` against Day 1 (`iterations=4`) and reviewed screenshots + `state-*.json`; no console/page errors emitted.
 - Added targeted Playwright interaction checks (start, movement, dash, pulse shot, pause/resume, restart hotkey) and all passed.
 - Replaced Day 1 catalog thumbnail with real gameplay capture (`assets/day-01-skyline-rescue-thumb.png`).
+- Balance/controls fix pass: increased player mobility, reduced drone chase speed, and made dash a directional burst with shorter cooldown.
+- Input handling fix: canonicalized Space key detection so dash activation is consistent across browsers/key event variants.

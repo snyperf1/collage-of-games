@@ -73,8 +73,8 @@
       vx: 0,
       vy: 0,
       radius: 17,
-      speed: 270,
-      damping: 0.84,
+      speed: 390,
+      damping: 0.965,
       lives: 3,
       invulnerable: 0,
       dashActive: 0,
@@ -150,7 +150,7 @@
       vx: 0,
       vy: 0,
       radius: 15,
-      speed: 112 + waveNumber * 18,
+      speed: 92 + waveNumber * 14,
       stunned: 0,
       hue: 190 + Math.random() * 35,
     };
@@ -169,6 +169,16 @@
   function normalize(x, y) {
     const len = Math.hypot(x, y) || 1;
     return { x: x / len, y: y / len };
+  }
+
+  function readMoveAxis() {
+    let x = 0;
+    let y = 0;
+    if (keys.has("arrowleft") || keys.has("a")) x -= 1;
+    if (keys.has("arrowright") || keys.has("d")) x += 1;
+    if (keys.has("arrowup") || keys.has("w")) y -= 1;
+    if (keys.has("arrowdown") || keys.has("s")) y += 1;
+    return { x, y };
   }
 
   function updateMenu(dt) {
@@ -208,16 +218,13 @@
       player.dashActive = Math.max(0, player.dashActive - dt);
     }
 
-    let inputX = 0;
-    let inputY = 0;
-    if (keys.has("arrowleft") || keys.has("a")) inputX -= 1;
-    if (keys.has("arrowright") || keys.has("d")) inputX += 1;
-    if (keys.has("arrowup") || keys.has("w")) inputY -= 1;
-    if (keys.has("arrowdown") || keys.has("s")) inputY += 1;
+    const movement = readMoveAxis();
+    const inputX = movement.x;
+    const inputY = movement.y;
 
     if (inputX !== 0 || inputY !== 0) {
       const axis = normalize(inputX, inputY);
-      const dashBoost = player.dashActive > 0 ? 1.95 : 1;
+      const dashBoost = player.dashActive > 0 ? 2.45 : 1;
       const accel = player.speed * dashBoost;
       player.vx += axis.x * accel * dt;
       player.vy += axis.y * accel * dt;
@@ -660,10 +667,26 @@
 
     const player = state.player;
     if (player.dashCooldown <= 0) {
-      player.dashActive = 0.22;
-      player.dashCooldown = 2.3;
+      const movement = readMoveAxis();
+      const dashDir =
+        movement.x !== 0 || movement.y !== 0
+          ? normalize(movement.x, movement.y)
+          : normalize(mouse.x - player.x, mouse.y - player.y);
+
+      player.vx += dashDir.x * 420;
+      player.vy += dashDir.y * 420;
+      player.dashActive = 0.36;
+      player.dashCooldown = 1.2;
       state.score = Math.max(0, state.score - 2);
     }
+  }
+
+  function getCanonicalKey(event) {
+    const key = event.key.toLowerCase();
+    if (event.code === "Space" || key === " " || key === "spacebar") {
+      return "space";
+    }
+    return key;
   }
 
   function toCanvasCoordinates(event) {
@@ -698,9 +721,9 @@
   }
 
   function handleKeyDown(event) {
-    const key = event.key.toLowerCase();
+    const key = getCanonicalKey(event);
 
-    if ([" ", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(event.key)) {
+    if (["space", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
       event.preventDefault();
     }
 
@@ -718,7 +741,7 @@
       togglePause();
     }
 
-    if (key === " ") {
+    if (key === "space") {
       tryDash();
     }
 
@@ -728,7 +751,7 @@
   }
 
   function handleKeyUp(event) {
-    keys.delete(event.key.toLowerCase());
+    keys.delete(getCanonicalKey(event));
   }
 
   function renderGameToText() {

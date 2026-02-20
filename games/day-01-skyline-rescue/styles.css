@@ -1,0 +1,53 @@
+@import url("https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Space+Grotesk:wght@400;600&display=swap");
+
+:root {
+  --bg: #031120;
+  --panel: rgba(5, 30, 54, 0.72);
+  --line: rgba(162, 206, 229, 0.38);
+  --text: #f1f8ff;
+  --accent: #ff9b5a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Space Grotesk", "Avenir Next", sans-serif;
+  color: var(--text);
+  min-height: 100vh;
+  background:
+    radial-gradient(850px 500px at 85% -20%, rgba(255, 155, 90, 0.16), transparent 70%),
+    radial-gradient(1000px 600px at 10% 110%, rgba(83, 177, 223, 0.2), transparent 68%),
+    linear-gradient(160deg, #031120, #021a30 45%, #04162a);
+}
+
+.game-wrap {
+  width: min(1080px, calc(100% - 1.25rem));
+  margin: 1rem auto 2rem;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  color: var(--text);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 999px;
+  padding: 0.4rem 0.7rem;
+  margin-bottom: 0.7rem;
+}
+
+#game {
+  width: 100%;
+  max-height: calc(100vh - 100px);
+  display: block;
+  margin: 0 auto;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: #020f1d;
+  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.4);
+}

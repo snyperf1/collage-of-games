@@ -1,0 +1,27 @@
+<svg width="600" height="600" viewBox="0 0 600 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sky" x1="300" y1="0" x2="300" y2="600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0E355A"/>
+      <stop offset="1" stop-color="#021220"/>
+    </linearGradient>
+    <linearGradient id="ground" x1="0" y1="600" x2="600" y2="330" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2C6489"/>
+      <stop offset="1" stop-color="#18334D"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="600" fill="url(#sky)"/>
+  <circle cx="470" cy="124" r="64" fill="#FFE1A1" fill-opacity="0.78"/>
+  <path d="M0 374L80 322L160 345L230 298L318 334L403 276L514 337L600 302V600H0V374Z" fill="url(#ground)"/>
+  <rect x="58" y="295" width="56" height="180" fill="#143550"/>
+  <rect x="136" y="252" width="64" height="223" fill="#19435F"/>
+  <rect x="225" y="208" width="73" height="267" fill="#1F4B69"/>
+  <rect x="322" y="247" width="53" height="228" fill="#154561"/>
+  <rect x="395" y="218" width="70" height="257" fill="#1D5A7D"/>
+  <rect x="497" y="273" width="50" height="202" fill="#113C59"/>
+  <circle cx="314" cy="359" r="28" fill="#FF8A5D"/>
+  <circle cx="314" cy="359" r="17" fill="#F8F8FF"/>
+  <circle cx="221" cy="400" r="12" fill="#8CF4D8"/>
+  <circle cx="372" cy="419" r="12" fill="#8CF4D8"/>
+  <circle cx="458" cy="365" r="12" fill="#8CF4D8"/>
+  <text x="32" y="62" fill="#FDF4D5" font-family="monospace" font-size="26" font-weight="700">Skyline Rescue</text>
+</svg>

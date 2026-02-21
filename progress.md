@@ -27,3 +27,4 @@ create game 1 in a sub folder today and build the site about it, it can be abotu
 - Attempted Playwright validation via `$WEB_GAME_CLIENT`; Chromium launch failed in this environment (MachPortRendezvous permission denied / crashpad error). No screenshots/state JSON produced.
 - TODO: run Playwright on a host with working Playwright/Chromium and replace the placeholder thumbnail with an actual gameplay capture (square).
 - Added pause toggle on KeyP and made KeyR reset regardless of mode in Day 2.
+- Git push to origin failed (no network: Could not resolve host github.com). Vercel deploy could not be verified in this environment.

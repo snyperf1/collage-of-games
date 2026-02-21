@@ -28,3 +28,9 @@ create game 1 in a sub folder today and build the site about it, it can be abotu
 - TODO: run Playwright on a host with working Playwright/Chromium and replace the placeholder thumbnail with an actual gameplay capture (square).
 - Added pause toggle on KeyP and made KeyR reset regardless of mode in Day 2.
 - Git push to origin failed (no network: Could not resolve host github.com). Vercel deploy could not be verified in this environment.
+- Day 2 playability hotfix: removed broken viewport transform that clipped the canvas in Safari; now rendering is fixed to native canvas coordinates.
+- Added pointer-first controls in Day 2: click/tap to start, click to move, right-click to pulse, click to resume/retry from overlays.
+- Rebalanced Day 2 difficulty slightly (fewer pests, slower chase, longer invulnerability) to reduce instant losses.
+- Ran `$WEB_GAME_CLIENT` successfully against Day 2 and reviewed screenshots + text state from `output/web-game/day-02-fix*`; no JS console/page errors were emitted.
+- Replaced Day 2 thumbnail with a real square gameplay capture from Playwright output.
+- User preference recorded for future days: avoid default WASD-first game concepts; prioritize more novel/fun mechanics and alternative control styles.

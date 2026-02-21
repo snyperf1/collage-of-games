@@ -24,13 +24,11 @@ const state = {
   pests: [],
   fruits: [],
   pulses: [],
+  pointerTarget: null,
   lastUpdate: performance.now(),
 };
 
 const keys = new Set();
-let scale = 1;
-let offsetX = 0;
-let offsetY = 0;
 
 function rand(min, max) {
   return Math.random() * (max - min) + min;
@@ -50,7 +48,7 @@ function resetGame() {
   state.invincible = 0;
   state.player.x = BASE_WIDTH / 2;
   state.player.y = BASE_HEIGHT / 2 + 40;
-  state.pests = Array.from({ length: 5 }, () => createPest());
+  state.pests = Array.from({ length: 4 }, () => createPest());
   state.fruits = Array.from({ length: 12 }, () => createFruit());
   state.pulses = [];
 }
@@ -91,15 +89,6 @@ function toggleFullscreen() {
   }
 }
 
-function resize() {
-  const { innerWidth: width, innerHeight: height } = window;
-  const scaleX = width / BASE_WIDTH;
-  const scaleY = height / BASE_HEIGHT;
-  scale = Math.min(scaleX, scaleY);
-  offsetX = (width - BASE_WIDTH * scale) * 0.5;
-  offsetY = (height - BASE_HEIGHT * scale) * 0.5;
-}
-
 function firePulse() {
   if (state.pulseCooldown > 0 || state.mode !== "playing") return;
   state.pulseCooldown = 3;
@@ -125,9 +114,25 @@ function updatePlayer(dt) {
 
   const sprinting = keys.has("ShiftLeft") || keys.has("ShiftRight");
   const speed = state.player.speed + (sprinting ? 90 : 0);
-  const magnitude = Math.hypot(moveX, moveY) || 1;
-  const dx = (moveX / magnitude) * speed * dt;
-  const dy = (moveY / magnitude) * speed * dt;
+  let dx = 0;
+  let dy = 0;
+
+  if (moveX !== 0 || moveY !== 0) {
+    state.pointerTarget = null;
+    const magnitude = Math.hypot(moveX, moveY) || 1;
+    dx = (moveX / magnitude) * speed * dt;
+    dy = (moveY / magnitude) * speed * dt;
+  } else if (state.pointerTarget) {
+    const tx = state.pointerTarget.x - state.player.x;
+    const ty = state.pointerTarget.y - state.player.y;
+    const dist = Math.hypot(tx, ty);
+    if (dist < 6) {
+      state.pointerTarget = null;
+    } else {
+      dx = (tx / dist) * speed * dt;
+      dy = (ty / dist) * speed * dt;
+    }
+  }
 
   state.player.x = clamp(state.player.x + dx, 40, BASE_WIDTH - 40);
   state.player.y = clamp(state.player.y + dy, 40, BASE_HEIGHT - 40);
@@ -141,10 +146,10 @@ function updatePests(dt) {
     }
 
     const distToPlayer = Math.hypot(state.player.x - pest.x, state.player.y - pest.y);
-    if (distToPlayer < 200) {
+    if (distToPlayer < 170) {
       const angle = Math.atan2(state.player.y - pest.y, state.player.x - pest.x);
-      pest.vx += Math.cos(angle) * 20 * dt;
-      pest.vy += Math.sin(angle) * 20 * dt;
+      pest.vx += Math.cos(angle) * 14 * dt;
+      pest.vy += Math.sin(angle) * 14 * dt;
     } else if (Math.random() < 0.02) {
       const angle = rand(0, Math.PI * 2);
       pest.vx += Math.cos(angle) * 30 * dt;
@@ -152,7 +157,7 @@ function updatePests(dt) {
     }
 
     const speed = Math.hypot(pest.vx, pest.vy);
-    const maxSpeed = 110;
+    const maxSpeed = 90;
     if (speed > maxSpeed) {
       pest.vx = (pest.vx / speed) * maxSpeed;
       pest.vy = (pest.vy / speed) * maxSpeed;
@@ -187,10 +192,11 @@ function updatePulses(dt) {
 function handleCollisions() {
   if (state.invincible > 0) return;
   state.pests.forEach((pest) => {
+    if (pest.stunned > 0) return;
     const dist = Math.hypot(state.player.x - pest.x, state.player.y - pest.y);
     if (dist < state.player.r + pest.r - 2) {
       state.lives -= 1;
-      state.invincible = 1.5;
+      state.invincible = 2.2;
       const angle = Math.atan2(state.player.y - pest.y, state.player.x - pest.x);
       state.player.x = clamp(state.player.x + Math.cos(angle) * 40, 40, BASE_WIDTH - 40);
       state.player.y = clamp(state.player.y + Math.sin(angle) * 40, 40, BASE_HEIGHT - 40);
@@ -335,6 +341,10 @@ function drawHud() {
     170,
     68
   );
+
+  ctx.font = "14px 'Manrope', sans-serif";
+  ctx.fillStyle = "rgba(247, 241, 227, 0.92)";
+  ctx.fillText("Click to move. Right click for pulse.", 32, 112);
 }
 
 function drawMessage(title, lines) {
@@ -355,7 +365,8 @@ function drawMessage(title, lines) {
 }
 
 function render() {
-  ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
   drawBackdrop();
 
   if (state.mode !== "menu") {
@@ -369,17 +380,17 @@ function render() {
   if (state.mode === "menu") {
     drawMessage("Orchard Wardens", [
       "Collect 10 sunfruit before time runs out.",
-      "Move: WASD or Arrow Keys",
-      "Sprint: Shift   Chime Pulse: Space",
+      "Move: Click or Arrow Keys",
+      "Sprint: Shift   Chime Pulse: Right Click or Space",
       "Pause: P   Restart: R   Fullscreen: F",
-      "Press Enter to begin.",
+      "Press Enter or click to begin.",
     ]);
   } else if (state.mode === "paused") {
-    drawMessage("Paused", ["Press P to resume or R to restart."]);
+    drawMessage("Paused", ["Press P or click to resume. Press R to restart."]);
   } else if (state.mode === "won") {
-    drawMessage("Orchard Secured", ["You protected the harvest!", "Press R to play again."]);
+    drawMessage("Orchard Secured", ["You protected the harvest!", "Press R or click to play again."]);
   } else if (state.mode === "lost") {
-    drawMessage("Harvest Lost", ["The pests overwhelmed the grove.", "Press R to try again."]);
+    drawMessage("Harvest Lost", ["The pests overwhelmed the grove.", "Press R or click to try again."]);
   }
 }
 
@@ -422,9 +433,50 @@ window.render_game_to_text = () => {
       cooldown: Number(state.pulseCooldown.toFixed(2)),
       active: state.pulseActive > 0,
     },
+    pointerTarget: state.pointerTarget
+      ? { x: state.pointerTarget.x, y: state.pointerTarget.y }
+      : null,
   };
   return JSON.stringify(payload);
 };
+
+function toCanvasPoint(event) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  return {
+    x: clamp((event.clientX - rect.left) * scaleX, 0, BASE_WIDTH),
+    y: clamp((event.clientY - rect.top) * scaleY, 0, BASE_HEIGHT),
+  };
+}
+
+canvas.addEventListener("pointerdown", (event) => {
+  const point = toCanvasPoint(event);
+  if (state.mode === "menu") {
+    startGame();
+    return;
+  }
+  if (state.mode === "paused") {
+    state.mode = "playing";
+    return;
+  }
+  if (state.mode === "won" || state.mode === "lost") {
+    resetGame();
+    startGame();
+    return;
+  }
+  if (event.button === 2) {
+    firePulse();
+    return;
+  }
+  if (state.mode === "playing") {
+    state.pointerTarget = point;
+  }
+});
+
+canvas.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+});
 
 window.addEventListener("keydown", (event) => {
   if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(event.code)) {
@@ -464,9 +516,5 @@ window.addEventListener("blur", () => {
   keys.clear();
 });
 
-document.addEventListener("fullscreenchange", resize);
-window.addEventListener("resize", resize);
-
 resetGame();
-resize();
 requestAnimationFrame(step);

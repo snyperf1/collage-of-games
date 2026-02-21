@@ -21,3 +21,9 @@ create game 1 in a sub folder today and build the site about it, it can be abotu
 - Replaced Day 1 catalog thumbnail with real gameplay capture (`assets/day-01-skyline-rescue-thumb.png`).
 - Balance/controls fix pass: increased player mobility, reduced drone chase speed, and made dash a directional burst with shorter cooldown.
 - Input handling fix: canonicalized Space key detection so dash activation is consistent across browsers/key event variants.
+
+- Day 2 (Orchard Wardens) added in `games/day-02-orchard-wardens/` with full game loop, menu/pause/win/loss, sprint + pulse mechanics, HUD, and required `render_game_to_text` / `advanceTime` hooks.
+- Unlocked Day 2 card in `app.js` and added a placeholder thumbnail at `assets/day-02-orchard-wardens-thumb.png`.
+- Attempted Playwright validation via `$WEB_GAME_CLIENT`; Chromium launch failed in this environment (MachPortRendezvous permission denied / crashpad error). No screenshots/state JSON produced.
+- TODO: run Playwright on a host with working Playwright/Chromium and replace the placeholder thumbnail with an actual gameplay capture (square).
+- Added pause toggle on KeyP and made KeyR reset regardless of mode in Day 2.

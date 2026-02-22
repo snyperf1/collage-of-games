@@ -21,3 +21,7 @@ create game 1 in a sub folder today and build the site about it, it can be abotu
 - Replaced Day 1 catalog thumbnail with real gameplay capture (`assets/day-01-skyline-rescue-thumb.png`).
 - Balance/controls fix pass: increased player mobility, reduced drone chase speed, and made dash a directional burst with shorter cooldown.
 - Input handling fix: canonicalized Space key detection so dash activation is consistent across browsers/key event variants.
+- Replaced Day 3 (`games/day-03-lantern-glide/`) with a distinct new game: `Parcel Sort Sprint` (bright conveyor/crane parcel sorting instead of dark glow movement).
+- Updated Day 3 catalog card title/description in `app.js` to match the new game.
+- Ran local visual/state checks on Day 3 with Playwright client and manual adaptive script; confirmed pick/drop sorting works (`sorted=1`, `score=100`) and no console/page errors.
+- Refreshed Day 3 thumbnail from real gameplay capture (`assets/day-03-lantern-glide-thumb.png`).

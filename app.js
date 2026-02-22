@@ -18,6 +18,24 @@ catalog[0] = {
   href: "./games/day-01-skyline-rescue/",
 };
 
+catalog[1] = {
+  day: 2,
+  state: "open",
+  title: "Orchard Wardens",
+  description: "Protect the harvest with sprint and chime pulses.",
+  image: "./assets/day-02-orchard-wardens-thumb.png",
+  href: "./games/day-02-orchard-wardens/",
+};
+
+catalog[2] = {
+  day: 3,
+  state: "open",
+  title: "Parcel Sort Sprint",
+  description: "Run the conveyor crane and sort boxes before the jam.",
+  image: "./assets/day-03-lantern-glide-thumb.png",
+  href: "./games/day-03-lantern-glide/",
+};
+
 const grid = document.querySelector("#games-grid");
 const stats = document.querySelector("#stats");
 

@@ -1,0 +1,63 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap");
+
+:root {
+  color-scheme: light;
+  font-family: "Space Grotesk", "Trebuchet MS", sans-serif;
+  background: #f3efe7;
+  color: #1c1914;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(800px 420px at 10% -10%, rgba(255, 180, 90, 0.24), transparent 70%),
+    radial-gradient(700px 460px at 100% 110%, rgba(90, 172, 255, 0.18), transparent 68%),
+    linear-gradient(180deg, #f8f4ec, #efe9dc);
+}
+
+.game-wrap {
+  width: min(100%, 1100px);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.back-link {
+  align-self: flex-start;
+  color: #1f1a14;
+  text-decoration: none;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(28, 25, 20, 0.15);
+  border-radius: 999px;
+  padding: 0.55rem 0.9rem;
+  box-shadow: 0 8px 20px rgba(32, 25, 14, 0.08);
+}
+
+.back-link:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+canvas {
+  width: min(100%, 960px);
+  height: auto;
+  border-radius: 20px;
+  border: 1px solid rgba(27, 23, 18, 0.2);
+  box-shadow:
+    0 30px 70px rgba(28, 21, 11, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  background: #f7f2e8;
+}

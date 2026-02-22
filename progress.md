@@ -40,3 +40,7 @@ create game 1 in a sub folder today and build the site about it, it can be abotu
 - Playwright run for Day 3 failed to launch Chromium in this environment (MachPortRendezvous permission denied / crashpad); no screenshots or state JSON produced, so the Day 3 gameplay thumbnail is still missing.
 - Re-ran `$WEB_GAME_CLIENT` for Day 3 successfully after environment permission change; reviewed gameplay screenshots and `state-*.json` in `output/web-game/day-03-lantern-glide/` with no emitted errors.
 - Added real square Day 3 catalog thumbnail from Playwright gameplay capture: `assets/day-03-lantern-glide-thumb.png`.
+- Replaced Day 3 (`games/day-03-lantern-glide/`) with a distinct new game: `Parcel Sort Sprint` (bright conveyor/crane parcel sorting instead of dark glow movement).
+- Updated Day 3 catalog card title/description in `app.js` to match the new game.
+- Ran local visual/state checks on Day 3 with Playwright client and manual adaptive script; confirmed pick/drop sorting works (`sorted=1`, `score=100`) and no console/page errors.
+- Refreshed Day 3 thumbnail from real gameplay capture (`assets/day-03-lantern-glide-thumb.png`).

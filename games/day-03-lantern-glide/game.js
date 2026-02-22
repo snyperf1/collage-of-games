@@ -3,50 +3,63 @@ const ctx = canvas.getContext("2d");
 
 const BASE_WIDTH = 960;
 const BASE_HEIGHT = 540;
+const BELT_Y = 348;
+const BELT_H = 94;
+const RAIL_Y = 116;
+const PARCEL_W = 54;
+const PARCEL_H = 40;
+const BINS = [
+  { type: 0, label: "SUN", x: 130, y: 158, w: 200, h: 106, color: "#f6a23c" },
+  { type: 1, label: "WAVE", x: 380, y: 158, w: 200, h: 106, color: "#4fa7ff" },
+  { type: 2, label: "SPARK", x: 630, y: 158, w: 200, h: 106, color: "#ef5d4a" },
+];
 
+const TYPE_COLORS = ["#f6a23c", "#4fa7ff", "#ef5d4a"];
+const TYPE_LABELS = ["SUN", "WAVE", "SPARK"];
+
+const keys = new Set();
 const pointer = {
+  active: false,
   x: BASE_WIDTH / 2,
   y: BASE_HEIGHT / 2,
-  active: false,
 };
 
-const state = {
-  mode: "title",
-  time: 0,
-  score: 0,
-  collected: 0,
-  goal: 10,
-  energy: 100,
-  maxEnergy: 100,
-  shields: 3,
-  blinkCooldown: 0,
-  blinkFlash: 0,
-  invuln: 0,
-  player: {
-    x: BASE_WIDTH / 2,
-    y: BASE_HEIGHT / 2,
-    r: 14,
-    vx: 0,
-    vy: 0,
-  },
-  target: {
-    x: BASE_WIDTH / 2,
-    y: BASE_HEIGHT / 2,
-    active: false,
-  },
-  sparks: [],
-  wraiths: [],
-  spawnTimer: 0,
-  wraithTimer: 0,
-  lastUpdate: performance.now(),
-};
+let nextParcelId = 1;
 
-const stars = Array.from({ length: 80 }, () => ({
+const dustSpecks = Array.from({ length: 120 }, () => ({
   x: Math.random() * BASE_WIDTH,
   y: Math.random() * BASE_HEIGHT,
+  a: 0.04 + Math.random() * 0.07,
   r: 0.6 + Math.random() * 1.4,
-  tw: Math.random() * Math.PI * 2,
 }));
+
+const state = {
+  mode: "menu",
+  time: 0,
+  timeLeft: 80,
+  score: 0,
+  sorted: 0,
+  goal: 18,
+  lives: 4,
+  combo: 0,
+  bestCombo: 0,
+  beltOffset: 0,
+  spawnTimer: 0,
+  spawnEvery: 1.2,
+  flash: 0,
+  messageTimer: 0,
+  message: "",
+  lastUpdate: performance.now(),
+  crane: {
+    x: BASE_WIDTH / 2,
+    vx: 0,
+    holdId: null,
+    cableJitter: 0,
+  },
+  selectedBin: 1,
+  parcels: [],
+  particles: [],
+};
 
 function rand(min, max) {
   return Math.random() * (max - min) + min;
@@ -60,37 +73,36 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
-function resetGame() {
-  state.mode = "title";
+function resetRound(toMenu = true) {
+  state.mode = toMenu ? "menu" : "playing";
   state.time = 0;
+  state.timeLeft = 80;
   state.score = 0;
-  state.collected = 0;
-  state.energy = state.maxEnergy;
-  state.shields = 3;
-  state.blinkCooldown = 0;
-  state.blinkFlash = 0;
-  state.invuln = 0;
-  state.player.x = BASE_WIDTH / 2;
-  state.player.y = BASE_HEIGHT / 2;
-  state.player.vx = 0;
-  state.player.vy = 0;
-  state.target.x = BASE_WIDTH / 2;
-  state.target.y = BASE_HEIGHT / 2;
-  state.target.active = false;
-  pointer.x = state.target.x;
-  pointer.y = state.target.y;
-  state.sparks = Array.from({ length: 5 }, () => createSpark());
-  state.wraiths = Array.from({ length: 2 }, () => createWraith());
-  state.spawnTimer = 0;
-  state.wraithTimer = 0;
+  state.sorted = 0;
+  state.lives = 4;
+  state.combo = 0;
+  state.bestCombo = 0;
+  state.beltOffset = 0;
+  state.spawnTimer = 0.6;
+  state.spawnEvery = 1.2;
+  state.flash = 0;
+  state.messageTimer = 0;
+  state.message = "";
+  state.crane.x = BASE_WIDTH / 2;
+  state.crane.vx = 0;
+  state.crane.holdId = null;
+  state.crane.cableJitter = 0;
+  state.selectedBin = 1;
+  state.parcels = [];
+  state.particles = [];
+  pointer.x = BASE_WIDTH / 2;
+  pointer.y = BASE_HEIGHT / 2;
+  pointer.active = false;
+  nextParcelId = 1;
 }
 
 function startGame() {
-  if (state.mode === "playing") return;
-  if (state.mode === "title" || state.mode === "won" || state.mode === "lost") {
-    resetGame();
-  }
-  state.mode = "playing";
+  resetRound(false);
   state.lastUpdate = performance.now();
 }
 
@@ -103,332 +115,664 @@ function togglePause() {
   }
 }
 
-function createSpark() {
+function showMessage(text) {
+  state.message = text;
+  state.messageTimer = 0.75;
+}
+
+function spawnParticles(x, y, color, count, force = 1) {
+  for (let i = 0; i < count; i++) {
+    const angle = rand(0, Math.PI * 2);
+    const speed = rand(50, 180) * force;
+    state.particles.push({
+      x,
+      y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - rand(10, 90),
+      life: rand(0.35, 0.9),
+      maxLife: 1,
+      size: rand(2, 5),
+      color,
+      rot: rand(0, Math.PI * 2),
+      vr: rand(-6, 6),
+    });
+  }
+}
+
+function createParcel() {
+  const type = Math.floor(rand(0, 3));
   return {
-    x: rand(70, BASE_WIDTH - 70),
-    y: rand(70, BASE_HEIGHT - 90),
-    r: rand(8, 12),
-    glow: rand(0, Math.PI * 2),
+    id: nextParcelId++,
+    type,
+    x: -PARCEL_W - rand(20, 120),
+    y: BELT_Y + BELT_H / 2 + rand(-6, 6),
+    w: PARCEL_W,
+    h: PARCEL_H,
+    vx: rand(118, 158),
+    bob: rand(0, Math.PI * 2),
+    rot: rand(-0.06, 0.06),
+    grabbed: false,
+    scored: false,
   };
 }
 
-function createWraith() {
-  const edge = Math.floor(rand(0, 4));
-  let x = 0;
-  let y = 0;
-  if (edge === 0) {
-    x = rand(40, BASE_WIDTH - 40);
-    y = -40;
-  } else if (edge === 1) {
-    x = BASE_WIDTH + 40;
-    y = rand(40, BASE_HEIGHT - 40);
-  } else if (edge === 2) {
-    x = rand(40, BASE_WIDTH - 40);
-    y = BASE_HEIGHT + 40;
-  } else {
-    x = -40;
-    y = rand(40, BASE_HEIGHT - 40);
-  }
-  return {
-    x,
-    y,
-    r: rand(16, 22),
-    speed: rand(45, 70),
-    drift: rand(-0.6, 0.6),
-  };
+function getHeldParcel() {
+  return state.parcels.find((parcel) => parcel.id === state.crane.holdId) || null;
 }
 
-function attemptBlink(point) {
-  if (state.mode !== "playing") return;
-  if (state.blinkCooldown > 0) return;
-  const dx = point.x - state.player.x;
-  const dy = point.y - state.player.y;
-  const dist = Math.hypot(dx, dy) || 1;
-  const maxRange = 180;
-  const travel = Math.min(maxRange, dist);
-  state.player.x = clamp(state.player.x + (dx / dist) * travel, 40, BASE_WIDTH - 40);
-  state.player.y = clamp(state.player.y + (dy / dist) * travel, 40, BASE_HEIGHT - 40);
-  state.player.vx = 0;
-  state.player.vy = 0;
-  state.blinkCooldown = 2.5;
-  state.blinkFlash = 0.35;
-  state.energy = clamp(state.energy - 6, 0, state.maxEnergy);
+function cycleBin(dir) {
+  state.selectedBin = (state.selectedBin + dir + BINS.length) % BINS.length;
 }
 
-function updatePlayer(dt) {
-  if (!state.target.active) {
-    state.player.vx *= Math.pow(0.85, dt * 60);
-    state.player.vy *= Math.pow(0.85, dt * 60);
+function updateCrane(dt) {
+  let move = 0;
+  if (keys.has("ArrowLeft")) move -= 1;
+  if (keys.has("ArrowRight")) move += 1;
+
+  const maxSpeed = 420;
+  if (move !== 0) {
+    state.crane.vx = move * maxSpeed;
   } else {
-    const dx = state.target.x - state.player.x;
-    const dy = state.target.y - state.player.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist > 6) {
-      const speed = 220;
-      const desiredX = (dx / dist) * speed;
-      const desiredY = (dy / dist) * speed;
-      state.player.vx = lerp(state.player.vx, desiredX, Math.min(1, dt * 6));
-      state.player.vy = lerp(state.player.vy, desiredY, Math.min(1, dt * 6));
-    } else {
-      state.player.vx *= 0.9;
-      state.player.vy *= 0.9;
+    state.crane.vx *= Math.pow(0.18, dt * 6);
+    if (pointer.active) {
+      const diff = pointer.x - state.crane.x;
+      state.crane.vx = lerp(state.crane.vx, clamp(diff * 7, -maxSpeed, maxSpeed), Math.min(1, dt * 5));
     }
   }
 
-  state.player.x = clamp(state.player.x + state.player.vx * dt, 40, BASE_WIDTH - 40);
-  state.player.y = clamp(state.player.y + state.player.vy * dt, 40, BASE_HEIGHT - 40);
+  state.crane.x = clamp(state.crane.x + state.crane.vx * dt, 64, BASE_WIDTH - 64);
+  state.crane.cableJitter += dt * (Math.abs(state.crane.vx) > 20 ? 10 : 4);
 }
 
-function updateSparks(dt) {
-  state.sparks.forEach((spark) => {
-    spark.glow += dt * 3;
-  });
-}
+function updateParcels(dt) {
+  for (let i = state.parcels.length - 1; i >= 0; i--) {
+    const parcel = state.parcels[i];
+    parcel.bob += dt * 4;
 
-function updateWraiths(dt) {
-  state.wraiths.forEach((wraith) => {
-    const dx = state.player.x - wraith.x;
-    const dy = state.player.y - wraith.y;
-    const dist = Math.hypot(dx, dy) || 1;
-    const driftX = Math.cos(state.time + wraith.drift) * 12;
-    const driftY = Math.sin(state.time + wraith.drift) * 12;
-    wraith.x += (dx / dist) * wraith.speed * dt + driftX * dt;
-    wraith.y += (dy / dist) * wraith.speed * dt + driftY * dt;
-  });
-}
-
-function handleCollisions() {
-  for (let i = state.sparks.length - 1; i >= 0; i--) {
-    const spark = state.sparks[i];
-    const dist = Math.hypot(state.player.x - spark.x, state.player.y - spark.y);
-    if (dist < state.player.r + spark.r + 4) {
-      state.sparks.splice(i, 1);
-      state.collected += 1;
-      state.score += 120;
-      state.energy = clamp(state.energy + 15, 0, state.maxEnergy);
-      state.sparks.push(createSpark());
+    if (parcel.grabbed) {
+      parcel.x = state.crane.x;
+      parcel.y = 256 + Math.sin(state.time * 8 + parcel.id) * 4;
+      parcel.rot = Math.sin(state.time * 6 + parcel.id) * 0.05;
+      continue;
     }
-  }
 
-  if (state.invuln <= 0) {
-    for (const wraith of state.wraiths) {
-      const dist = Math.hypot(state.player.x - wraith.x, state.player.y - wraith.y);
-      if (dist < state.player.r + wraith.r - 2) {
-        state.shields -= 1;
-        state.invuln = 1.3;
-        const pushX = (state.player.x - wraith.x) / (dist || 1);
-        const pushY = (state.player.y - wraith.y) / (dist || 1);
-        state.player.vx += pushX * 140;
-        state.player.vy += pushY * 140;
-        break;
+    parcel.x += parcel.vx * dt;
+    parcel.y = BELT_Y + BELT_H / 2 + Math.sin(parcel.bob) * 3;
+
+    if (parcel.x - parcel.w / 2 > BASE_WIDTH + 12) {
+      state.parcels.splice(i, 1);
+      if (!parcel.scored) {
+        state.lives -= 1;
+        state.combo = 0;
+        state.flash = 0.24;
+        showMessage("Missed parcel");
+        spawnParticles(BASE_WIDTH - 18, BELT_Y + BELT_H / 2, "#ef5d4a", 12, 0.8);
       }
     }
   }
+}
+
+function updateParticles(dt) {
+  for (let i = state.particles.length - 1; i >= 0; i--) {
+    const p = state.particles[i];
+    p.life -= dt;
+    p.vy += 180 * dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.rot += p.vr * dt;
+    if (p.life <= 0) state.particles.splice(i, 1);
+  }
+}
+
+function spawnLoop(dt) {
+  state.spawnTimer -= dt;
+  if (state.spawnTimer > 0) return;
+
+  const activeOnBelt = state.parcels.filter((p) => !p.grabbed).length;
+  if (activeOnBelt < 7) {
+    state.parcels.push(createParcel());
+  }
+
+  const tension = clamp(state.sorted / state.goal, 0, 1);
+  state.spawnEvery = 1.15 - tension * 0.42;
+  state.spawnTimer = rand(state.spawnEvery * 0.8, state.spawnEvery * 1.15);
 }
 
 function update(dt) {
   if (state.mode !== "playing") return;
 
   state.time += dt;
-  state.energy = clamp(state.energy - dt * 3.2, 0, state.maxEnergy);
-  state.blinkCooldown = Math.max(0, state.blinkCooldown - dt);
-  state.blinkFlash = Math.max(0, state.blinkFlash - dt);
-  state.invuln = Math.max(0, state.invuln - dt);
+  state.timeLeft = Math.max(0, state.timeLeft - dt);
+  state.flash = Math.max(0, state.flash - dt);
+  state.messageTimer = Math.max(0, state.messageTimer - dt);
+  state.beltOffset = (state.beltOffset + 140 * dt) % 48;
 
-  updatePlayer(dt);
-  updateSparks(dt);
-  updateWraiths(dt);
-  handleCollisions();
+  updateCrane(dt);
+  spawnLoop(dt);
+  updateParcels(dt);
+  updateParticles(dt);
 
-  state.spawnTimer += dt;
-  if (state.spawnTimer > 6) {
-    state.spawnTimer = 0;
-    state.sparks.push(createSpark());
-  }
-
-  state.wraithTimer += dt;
-  if (state.wraithTimer > 8 && state.wraiths.length < 6) {
-    state.wraithTimer = 0;
-    state.wraiths.push(createWraith());
-  }
-
-  if (state.energy <= 0 || state.shields <= 0) {
+  if (state.lives <= 0) {
     state.mode = "lost";
-  }
-
-  if (state.collected >= state.goal) {
+    showMessage("Warehouse jammed");
+  } else if (state.sorted >= state.goal) {
     state.mode = "won";
+    showMessage("Shift cleared");
+    spawnParticles(BASE_WIDTH / 2, 150, "#4fa7ff", 40, 1.4);
+    spawnParticles(BASE_WIDTH / 2, 150, "#f6a23c", 40, 1.4);
+  } else if (state.timeLeft <= 0) {
+    state.mode = "lost";
+    showMessage("Shift ended");
   }
 }
 
-function drawBackground() {
-  const gradient = ctx.createLinearGradient(0, 0, 0, BASE_HEIGHT);
-  gradient.addColorStop(0, "#0c1021");
-  gradient.addColorStop(1, "#06070d");
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
+function parcelUnderCrane() {
+  let best = null;
+  let bestDist = Infinity;
+  for (const parcel of state.parcels) {
+    if (parcel.grabbed) continue;
+    const dx = Math.abs(parcel.x - state.crane.x);
+    const dy = Math.abs(parcel.y - (BELT_Y + BELT_H / 2));
+    if (dx < 38 && dy < 30 && dx < bestDist) {
+      best = parcel;
+      bestDist = dx;
+    }
+  }
+  return best;
+}
 
-  ctx.save();
-  ctx.globalAlpha = 0.75;
-  ctx.fillStyle = "#1c2442";
+function grabParcel() {
+  if (state.crane.holdId != null) return false;
+  const parcel = parcelUnderCrane();
+  if (!parcel) {
+    showMessage("No parcel in reach");
+    return false;
+  }
+  parcel.grabbed = true;
+  state.crane.holdId = parcel.id;
+  showMessage(`Picked ${TYPE_LABELS[parcel.type]}`);
+  return true;
+}
+
+function selectedBinFromPoint(x, y) {
+  for (let i = 0; i < BINS.length; i++) {
+    const bin = BINS[i];
+    if (x >= bin.x && x <= bin.x + bin.w && y >= bin.y && y <= bin.y + bin.h) {
+      return i;
+    }
+  }
+  return null;
+}
+
+function resolveDrop(binIndex) {
+  const parcel = getHeldParcel();
+  if (!parcel) {
+    state.crane.holdId = null;
+    return false;
+  }
+
+  const bin = BINS[binIndex];
+  const correct = parcel.type === bin.type;
+  const idx = state.parcels.findIndex((p) => p.id === parcel.id);
+  if (idx >= 0) {
+    state.parcels.splice(idx, 1);
+  }
+  state.crane.holdId = null;
+
+  if (correct) {
+    state.combo += 1;
+    state.bestCombo = Math.max(state.bestCombo, state.combo);
+    state.sorted += 1;
+    state.score += 100 + (state.combo - 1) * 20;
+    state.flash = 0.14;
+    showMessage(`${bin.label} sorted x${state.combo}`);
+    spawnParticles(bin.x + bin.w / 2, bin.y + bin.h / 2, bin.color, 18, 1.05);
+  } else {
+    state.lives -= 1;
+    state.combo = 0;
+    state.score = Math.max(0, state.score - 30);
+    state.flash = 0.24;
+    showMessage(`Wrong bin for ${TYPE_LABELS[parcel.type]}`);
+    spawnParticles(bin.x + bin.w / 2, bin.y + bin.h / 2, "#ef5d4a", 14, 0.9);
+  }
+
+  return true;
+}
+
+function attemptAction(preferredBin = null) {
+  if (state.mode === "menu" || state.mode === "won" || state.mode === "lost") {
+    startGame();
+    return;
+  }
+  if (state.mode === "paused") {
+    togglePause();
+    return;
+  }
+  if (state.mode !== "playing") return;
+
+  if (state.crane.holdId == null) {
+    grabParcel();
+    return;
+  }
+
+  let binIndex = preferredBin;
+  if (binIndex == null && pointer.active) {
+    binIndex = selectedBinFromPoint(pointer.x, pointer.y);
+    if (binIndex != null) state.selectedBin = binIndex;
+  }
+  if (binIndex == null) binIndex = state.selectedBin;
+
+  resolveDrop(binIndex);
+}
+
+function drawRoundedRect(x, y, w, h, r) {
   ctx.beginPath();
-  ctx.arc(130, 110, 120, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 0.45;
-  ctx.fillStyle = "#1a1f34";
-  ctx.beginPath();
-  ctx.arc(760, 160, 150, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-
-  stars.forEach((star) => {
-    const pulse = Math.sin(state.time * 1.5 + star.tw) * 0.5 + 0.5;
-    ctx.fillStyle = `rgba(245, 217, 170, ${0.3 + pulse * 0.5})`;
-    ctx.beginPath();
-    ctx.arc(star.x, star.y, star.r + pulse * 0.8, 0, Math.PI * 2);
-    ctx.fill();
-  });
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
 
-function drawSparks() {
-  state.sparks.forEach((spark) => {
-    const glow = Math.sin(spark.glow) * 0.5 + 0.5;
-    ctx.save();
-    ctx.fillStyle = `rgba(255, 210, 120, ${0.5 + glow * 0.4})`;
-    ctx.beginPath();
-    ctx.arc(spark.x, spark.y, spark.r + glow * 4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#ffe4a0";
-    ctx.beginPath();
-    ctx.arc(spark.x, spark.y, spark.r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  });
-}
-
-function drawWraiths() {
-  state.wraiths.forEach((wraith) => {
-    ctx.save();
-    ctx.globalAlpha = 0.9;
-    ctx.fillStyle = "rgba(40, 50, 70, 0.8)";
-    ctx.beginPath();
-    ctx.arc(wraith.x, wraith.y, wraith.r + 6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "rgba(10, 12, 20, 0.9)";
-    ctx.beginPath();
-    ctx.arc(wraith.x, wraith.y, wraith.r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  });
-}
-
-function drawPlayer() {
+function drawSticker(type, x, y, size, alpha = 1) {
   ctx.save();
-  ctx.translate(state.player.x, state.player.y);
+  ctx.translate(x, y);
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = TYPE_COLORS[type];
+  ctx.strokeStyle = "rgba(28, 22, 14, 0.22)";
+  ctx.lineWidth = 1.4;
 
-  if (state.blinkFlash > 0) {
-    ctx.globalAlpha = state.blinkFlash * 1.5;
-    ctx.strokeStyle = "rgba(255, 240, 190, 0.8)";
-    ctx.lineWidth = 3;
+  if (type === 0) {
     ctx.beginPath();
-    ctx.arc(0, 0, state.player.r + 12, 0, Math.PI * 2);
+    ctx.arc(0, 0, size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else if (type === 1) {
+    drawRoundedRect(-size * 1.1, -size * 0.75, size * 2.2, size * 1.5, size * 0.45);
+    ctx.fill();
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,0.55)";
+    ctx.beginPath();
+    ctx.moveTo(-size * 0.7, -size * 0.15);
+    ctx.quadraticCurveTo(0, -size * 0.55, size * 0.7, -size * 0.15);
+    ctx.moveTo(-size * 0.7, size * 0.2);
+    ctx.quadraticCurveTo(0, -size * 0.2, size * 0.7, size * 0.2);
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(0, -size * 1.05);
+    ctx.lineTo(size * 0.95, size * 0.95);
+    ctx.lineTo(-size * 0.95, size * 0.95);
+    ctx.closePath();
+    ctx.fill();
     ctx.stroke();
   }
 
-  const glow = state.invuln > 0 ? 0.9 : 0.6;
-  ctx.fillStyle = `rgba(255, 209, 114, ${glow})`;
-  ctx.beginPath();
-  ctx.arc(0, 0, state.player.r + 6, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = "#fef1c6";
-  ctx.beginPath();
-  ctx.arc(0, 0, state.player.r, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = "#8a6a2c";
-  ctx.beginPath();
-  ctx.arc(0, 0, 4, 0, Math.PI * 2);
-  ctx.fill();
-
   ctx.restore();
 }
 
-function drawTarget() {
-  if (!state.target.active || state.mode !== "playing") return;
+function drawPaperBackground() {
+  const grad = ctx.createLinearGradient(0, 0, 0, BASE_HEIGHT);
+  grad.addColorStop(0, "#faf5ea");
+  grad.addColorStop(1, "#efe5d4");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
+
+  ctx.fillStyle = "rgba(120, 90, 55, 0.03)";
+  for (const speck of dustSpecks) {
+    ctx.globalAlpha = speck.a;
+    ctx.beginPath();
+    ctx.arc(speck.x, speck.y, speck.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.strokeStyle = "rgba(60, 45, 27, 0.06)";
+  ctx.lineWidth = 1;
+  for (let y = 0; y < BASE_HEIGHT; y += 36) {
+    ctx.beginPath();
+    ctx.moveTo(0, y + (y % 72 === 0 ? 2 : 0));
+    ctx.lineTo(BASE_WIDTH, y);
+    ctx.stroke();
+  }
+}
+
+function drawBins() {
   ctx.save();
-  ctx.strokeStyle = "rgba(248, 219, 160, 0.5)";
-  ctx.lineWidth = 1.5;
+  ctx.font = "700 14px Space Grotesk";
+  ctx.textAlign = "center";
+  for (let i = 0; i < BINS.length; i++) {
+    const bin = BINS[i];
+    const active = i === state.selectedBin;
+    const shadowOffset = active ? 8 : 4;
+
+    ctx.fillStyle = active ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.72)";
+    ctx.shadowColor = active ? "rgba(0,0,0,0.12)" : "rgba(0,0,0,0.06)";
+    ctx.shadowBlur = active ? 18 : 10;
+    ctx.shadowOffsetY = shadowOffset;
+    drawRoundedRect(bin.x, bin.y, bin.w, bin.h, 16);
+    ctx.fill();
+    ctx.shadowColor = "transparent";
+
+    ctx.lineWidth = active ? 3 : 1.6;
+    ctx.strokeStyle = active ? bin.color : "rgba(60, 46, 28, 0.18)";
+    drawRoundedRect(bin.x, bin.y, bin.w, bin.h, 16);
+    ctx.stroke();
+
+    ctx.fillStyle = active ? "rgba(28, 21, 13, 0.95)" : "rgba(28, 21, 13, 0.85)";
+    ctx.fillText(bin.label, bin.x + bin.w / 2, bin.y + 28);
+    drawSticker(bin.type, bin.x + 38, bin.y + 54, 12, active ? 1 : 0.9);
+
+    ctx.fillStyle = "rgba(60, 45, 25, 0.55)";
+    ctx.font = "500 11px Space Grotesk";
+    ctx.textAlign = "left";
+    ctx.fillText(active ? "Selected" : "Drop zone", bin.x + 62, bin.y + 58);
+    ctx.font = "700 14px Space Grotesk";
+    ctx.textAlign = "center";
+
+    ctx.fillStyle = "rgba(40, 34, 26, 0.08)";
+    drawRoundedRect(bin.x + 18, bin.y + 66, bin.w - 36, 24, 10);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(40, 34, 26, 0.08)";
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawRailAndCrane() {
+  ctx.save();
+  ctx.fillStyle = "#2c3a4b";
+  drawRoundedRect(70, RAIL_Y - 18, BASE_WIDTH - 140, 14, 7);
+  ctx.fill();
+  ctx.fillStyle = "#40546d";
+  drawRoundedRect(70, RAIL_Y - 8, BASE_WIDTH - 140, 8, 4);
+  ctx.fill();
+
+  const trolleyX = state.crane.x - 28;
+  ctx.fillStyle = "#1e2937";
+  drawRoundedRect(trolleyX, RAIL_Y - 30, 56, 28, 10);
+  ctx.fill();
+  ctx.fillStyle = "#5c6f89";
+  drawRoundedRect(trolleyX + 8, RAIL_Y - 24, 40, 10, 5);
+  ctx.fill();
+
+  const cableX = state.crane.x + Math.sin(state.crane.cableJitter) * 1.8;
+  ctx.strokeStyle = "rgba(22, 23, 27, 0.45)";
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(state.target.x, state.target.y, 14, 0, Math.PI * 2);
+  ctx.moveTo(cableX, RAIL_Y - 4);
+  ctx.lineTo(cableX, 236);
+  ctx.stroke();
+
+  ctx.fillStyle = "#263242";
+  drawRoundedRect(cableX - 24, 236, 48, 16, 7);
+  ctx.fill();
+
+  ctx.strokeStyle = "#f6a23c";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(cableX - 12, 252);
+  ctx.lineTo(cableX - 6, 268);
+  ctx.moveTo(cableX + 12, 252);
+  ctx.lineTo(cableX + 6, 268);
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(33, 40, 51, 0.35)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(56, 275);
+  ctx.lineTo(BASE_WIDTH - 56, 275);
   ctx.stroke();
   ctx.restore();
 }
 
-function drawHud() {
+function drawConveyor() {
   ctx.save();
-  ctx.fillStyle = "rgba(8, 10, 18, 0.6)";
-  ctx.fillRect(20, 18, 220, 70);
-  ctx.strokeStyle = "rgba(255, 220, 160, 0.4)";
-  ctx.strokeRect(20, 18, 220, 70);
+  ctx.fillStyle = "#2b2f39";
+  drawRoundedRect(48, BELT_Y, BASE_WIDTH - 96, BELT_H, 22);
+  ctx.fill();
 
-  ctx.fillStyle = "#f6e7c6";
-  ctx.font = "16px Trebuchet MS";
-  ctx.fillText(`Sparks: ${state.collected}/${state.goal}`, 32, 42);
-  ctx.fillText(`Score: ${state.score}`, 32, 62);
-  ctx.fillText(`Shields: ${state.shields}`, 32, 82);
+  ctx.fillStyle = "#3d4452";
+  drawRoundedRect(60, BELT_Y + 14, BASE_WIDTH - 120, BELT_H - 28, 18);
+  ctx.fill();
 
-  const barWidth = 160;
-  const barHeight = 8;
-  const energyRatio = state.energy / state.maxEnergy;
-  ctx.fillStyle = "rgba(255, 230, 190, 0.3)";
-  ctx.fillRect(270, 28, barWidth, barHeight);
-  ctx.fillStyle = "#f4c661";
-  ctx.fillRect(270, 28, barWidth * energyRatio, barHeight);
-  ctx.fillStyle = "#f6e7c6";
-  ctx.font = "13px Trebuchet MS";
-  ctx.fillText("Glow", 270, 46);
+  ctx.save();
+  ctx.beginPath();
+  drawRoundedRect(60, BELT_Y + 14, BASE_WIDTH - 120, BELT_H - 28, 18);
+  ctx.clip();
+  for (let x = -64; x < BASE_WIDTH + 64; x += 48) {
+    ctx.fillStyle = "rgba(255,255,255,0.05)";
+    ctx.fillRect(x - state.beltOffset, BELT_Y + 16, 20, BELT_H - 32);
+    ctx.fillStyle = "rgba(0,0,0,0.06)";
+    ctx.fillRect(x + 20 - state.beltOffset, BELT_Y + 16, 10, BELT_H - 32);
+  }
+  ctx.restore();
+
+  for (let i = 0; i < 10; i++) {
+    const cx = 96 + i * 86;
+    ctx.fillStyle = "#6f7888";
+    ctx.beginPath();
+    ctx.arc(cx, BELT_Y + BELT_H / 2, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#1e2430";
+    ctx.beginPath();
+    ctx.arc(cx, BELT_Y + BELT_H / 2, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawParcel(parcel) {
+  ctx.save();
+  ctx.translate(parcel.x, parcel.y);
+  ctx.rotate(parcel.rot);
+
+  ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+  ctx.beginPath();
+  ctx.ellipse(0, 18, parcel.w * 0.38, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#d89f62";
+  drawRoundedRect(-parcel.w / 2, -parcel.h / 2, parcel.w, parcel.h, 10);
+  ctx.fill();
+
+  ctx.fillStyle = "#e6ba86";
+  drawRoundedRect(-parcel.w / 2 + 4, -parcel.h / 2 + 4, parcel.w - 8, parcel.h - 8, 8);
+  ctx.fill();
+
+  ctx.fillStyle = "#c8874e";
+  ctx.fillRect(-4, -parcel.h / 2 + 2, 8, parcel.h - 4);
+  ctx.fillRect(-parcel.w / 2 + 2, -3, parcel.w - 4, 6);
+
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
+  drawRoundedRect(-parcel.w / 2 + 8, -parcel.h / 2 + 8, 24, 18, 5);
+  ctx.fill();
+  drawSticker(parcel.type, -parcel.w / 2 + 20, -parcel.h / 2 + 17, 6.2);
 
   ctx.restore();
 }
 
-function drawOverlay(title, subtitle) {
+function drawParcels() {
+  for (const parcel of state.parcels) {
+    drawParcel(parcel);
+  }
+}
+
+function drawParticles() {
   ctx.save();
-  ctx.fillStyle = "rgba(7, 9, 15, 0.78)";
-  ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
-  ctx.fillStyle = "#f7e6c3";
+  for (const p of state.particles) {
+    const alpha = clamp(p.life, 0, 1);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = p.color;
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot);
+    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+    ctx.rotate(-p.rot);
+    ctx.translate(-p.x, -p.y);
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+function drawHud() {
+  ctx.save();
+  ctx.fillStyle = "rgba(255,255,255,0.82)";
+  ctx.shadowColor = "rgba(0,0,0,0.08)";
+  ctx.shadowBlur = 10;
+  ctx.shadowOffsetY = 5;
+  drawRoundedRect(34, 22, 310, 108, 16);
+  ctx.fill();
+  ctx.shadowColor = "transparent";
+  ctx.strokeStyle = "rgba(35, 29, 21, 0.12)";
+  ctx.lineWidth = 1.4;
+  drawRoundedRect(34, 22, 310, 108, 16);
+  ctx.stroke();
+
+  ctx.fillStyle = "#211b14";
+  ctx.font = "700 14px Space Grotesk";
+  ctx.fillText("DAY 3 • PARCEL SORT SPRINT", 52, 48);
+
+  ctx.font = "500 13px Space Grotesk";
+  ctx.fillStyle = "rgba(33,27,20,0.78)";
+  ctx.fillText(`Sorted ${state.sorted}/${state.goal}`, 52, 74);
+  ctx.fillText(`Score ${state.score}`, 170, 74);
+  ctx.fillText(`Lives ${state.lives}`, 264, 74);
+
+  ctx.fillText(`Time ${Math.ceil(state.timeLeft)}s`, 52, 98);
+  ctx.fillText(`Combo x${state.combo}`, 170, 98);
+  ctx.fillText(`Best x${state.bestCombo}`, 264, 98);
+
+  const progress = state.sorted / state.goal;
+  ctx.fillStyle = "rgba(37, 31, 23, 0.08)";
+  drawRoundedRect(52, 108, 274, 10, 5);
+  ctx.fill();
+  const barW = 274 * clamp(progress, 0, 1);
+  const barGrad = ctx.createLinearGradient(52, 0, 326, 0);
+  barGrad.addColorStop(0, "#f6a23c");
+  barGrad.addColorStop(1, "#4fa7ff");
+  ctx.fillStyle = barGrad;
+  drawRoundedRect(52, 108, barW, 10, 5);
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(33,27,20,0.65)";
+  ctx.font = "500 12px Space Grotesk";
+  ctx.fillText("Move: arrows / mouse • Pick/Drop: Space / click • Bin: A/B", 370, 38);
+  ctx.fillText("Pause: P • Restart: R • Fullscreen: F", 370, 58);
+
+  if (state.messageTimer > 0) {
+    const alpha = Math.min(1, state.messageTimer / 0.4);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    drawRoundedRect(370, 76, 250, 42, 12);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(33,27,20,0.1)";
+    drawRoundedRect(370, 76, 250, 42, 12);
+    ctx.stroke();
+    ctx.fillStyle = "#211b14";
+    ctx.font = "700 14px Space Grotesk";
+    ctx.fillText(state.message, 386, 102);
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+}
+
+function drawBinSelectionArrows() {
+  ctx.save();
+  const bin = BINS[state.selectedBin];
+  const y = bin.y + bin.h + 12;
   ctx.textAlign = "center";
-  ctx.font = "42px Trebuchet MS";
-  ctx.fillText(title, BASE_WIDTH / 2, BASE_HEIGHT / 2 - 40);
+  ctx.font = "700 12px Space Grotesk";
+  ctx.fillStyle = "rgba(33,27,20,0.55)";
+  ctx.fillText("A", bin.x + 18, y);
+  ctx.fillText("B", bin.x + bin.w - 18, y);
+  ctx.strokeStyle = "rgba(33,27,20,0.25)";
+  ctx.beginPath();
+  ctx.moveTo(bin.x + 28, y - 4);
+  ctx.lineTo(bin.x + 60, y - 4);
+  ctx.moveTo(bin.x + bin.w - 28, y - 4);
+  ctx.lineTo(bin.x + bin.w - 60, y - 4);
+  ctx.stroke();
+  ctx.restore();
+}
 
-  ctx.font = "18px Trebuchet MS";
-  ctx.fillStyle = "#f4c661";
-  ctx.fillText(subtitle, BASE_WIDTH / 2, BASE_HEIGHT / 2);
+function drawOverlay() {
+  if (state.mode === "playing") return;
 
-  ctx.font = "16px Trebuchet MS";
-  ctx.fillStyle = "#f0d9a8";
-  ctx.fillText("Move the pointer to steer. Click or tap to blink.", BASE_WIDTH / 2, BASE_HEIGHT / 2 + 34);
-  ctx.fillText("Collect sparks, avoid wraiths. Press F for fullscreen.", BASE_WIDTH / 2, BASE_HEIGHT / 2 + 58);
+  ctx.save();
+  ctx.fillStyle = state.mode === "menu" ? "rgba(248, 242, 231, 0.84)" : "rgba(245, 238, 225, 0.88)";
+  ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
+
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.shadowColor = "rgba(0,0,0,0.08)";
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetY = 8;
+  drawRoundedRect(180, 120, 600, 290, 24);
+  ctx.fill();
+  ctx.shadowColor = "transparent";
+  ctx.strokeStyle = "rgba(33,27,20,0.12)";
+  ctx.lineWidth = 1.5;
+  drawRoundedRect(180, 120, 600, 290, 24);
+  ctx.stroke();
+
+  let title = "Parcel Sort Sprint";
+  let subtitle = "Run the crane and keep the conveyor flowing.";
+  if (state.mode === "paused") {
+    title = "Paused";
+    subtitle = "Press P or Space to resume the shift.";
+  } else if (state.mode === "won") {
+    title = "Shift Cleared";
+    subtitle = `Sorted ${state.sorted} parcels with score ${state.score}.`;
+  } else if (state.mode === "lost") {
+    title = "Warehouse Jam";
+    subtitle = `Sorted ${state.sorted}/${state.goal}. Press Space to restart.`;
+  }
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#201912";
+  ctx.font = "700 40px Space Grotesk";
+  ctx.fillText(title, BASE_WIDTH / 2, 186);
+  ctx.font = "500 18px Space Grotesk";
+  ctx.fillStyle = "rgba(32,25,18,0.72)";
+  ctx.fillText(subtitle, BASE_WIDTH / 2, 220);
+
+  ctx.font = "500 15px Space Grotesk";
+  ctx.fillStyle = "rgba(32,25,18,0.8)";
+  ctx.fillText("Arrow keys or mouse move the crane. A/B switches the target bin.", BASE_WIDTH / 2, 275);
+  ctx.fillText("Space or click picks a box, then drops it into the selected bin.", BASE_WIDTH / 2, 302);
+  ctx.fillText("Sort 18 parcels before time runs out. Misses and wrong bins cost lives.", BASE_WIDTH / 2, 329);
+
+  ctx.fillStyle = "#f6a23c";
+  drawRoundedRect(355, 350, 250, 34, 12);
+  ctx.fill();
+  ctx.fillStyle = "#1e1710";
+  ctx.font = "700 14px Space Grotesk";
+  ctx.fillText(state.mode === "menu" ? "PRESS SPACE OR CLICK TO START" : "PRESS SPACE OR CLICK", BASE_WIDTH / 2, 373);
+
+  ctx.restore();
+}
+
+function drawFlash() {
+  if (state.flash <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = state.flash * 0.75;
+  ctx.fillStyle = state.lives > 0 ? "#fff6d8" : "#ffd7d2";
+  ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
   ctx.restore();
 }
 
 function render() {
-  drawBackground();
-  drawTarget();
-  drawSparks();
-  drawWraiths();
-  drawPlayer();
+  drawPaperBackground();
+  drawBins();
+  drawRailAndCrane();
+  drawConveyor();
+  drawParcels();
+  drawParticles();
+  drawBinSelectionArrows();
   drawHud();
-
-  if (state.mode === "title") {
-    drawOverlay("Lantern Glide", "Guide the glow through the dusk.");
-  } else if (state.mode === "paused") {
-    drawOverlay("Paused", "Click to resume or press P.");
-  } else if (state.mode === "won") {
-    drawOverlay("Light Restored", "Click to glide again.");
-  } else if (state.mode === "lost") {
-    drawOverlay("Glow Faded", "Click to try again.");
-  }
+  drawFlash();
+  drawOverlay();
 }
 
 function step(dt) {
@@ -455,111 +799,119 @@ function toCanvasCoords(event) {
 
 canvas.addEventListener("pointermove", (event) => {
   const pos = toCanvasCoords(event);
-  pointer.x = pos.x;
-  pointer.y = pos.y;
   pointer.active = true;
-  state.target.x = pos.x;
-  state.target.y = pos.y;
-  state.target.active = true;
-});
-
-canvas.addEventListener("pointerdown", (event) => {
-  event.preventDefault();
-  const pos = toCanvasCoords(event);
   pointer.x = pos.x;
   pointer.y = pos.y;
-  state.target.x = pos.x;
-  state.target.y = pos.y;
-  state.target.active = true;
-
-  if (state.mode === "title" || state.mode === "won" || state.mode === "lost") {
-    startGame();
-    return;
+  const binIndex = selectedBinFromPoint(pos.x, pos.y);
+  if (binIndex != null) {
+    state.selectedBin = binIndex;
   }
-
-  if (state.mode === "paused") {
-    togglePause();
-    return;
-  }
-
-  attemptBlink(pos);
 });
 
 canvas.addEventListener("pointerleave", () => {
   pointer.active = false;
 });
 
-canvas.addEventListener("contextmenu", (event) => {
+canvas.addEventListener("pointerdown", (event) => {
   event.preventDefault();
+  const pos = toCanvasCoords(event);
+  pointer.active = true;
+  pointer.x = pos.x;
+  pointer.y = pos.y;
+  const binIndex = selectedBinFromPoint(pos.x, pos.y);
+  attemptAction(binIndex);
 });
 
+canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+
 window.addEventListener("keydown", (event) => {
-  if (event.code === "KeyF") {
+  const code = event.code;
+  if (["ArrowLeft", "ArrowRight", "Space", "Enter"].includes(code)) {
+    event.preventDefault();
+  }
+
+  keys.add(code);
+
+  if (event.repeat) return;
+
+  if (code === "KeyA" || code === "ArrowUp") {
+    cycleBin(-1);
+  } else if (code === "KeyB" || code === "ArrowDown") {
+    cycleBin(1);
+  } else if (code === "Space" || code === "Enter") {
+    attemptAction();
+  } else if (code === "KeyP") {
+    togglePause();
+  } else if (code === "KeyR") {
+    resetRound(true);
+  } else if (code === "KeyF") {
     if (!document.fullscreenElement) {
       canvas.requestFullscreen?.();
     } else {
       document.exitFullscreen?.();
     }
   }
-  if (event.code === "KeyP") {
-    togglePause();
-  }
-  if (event.code === "KeyR") {
-    resetGame();
-  }
+});
+
+window.addEventListener("keyup", (event) => {
+  keys.delete(event.code);
+});
+
+window.addEventListener("blur", () => {
+  keys.clear();
 });
 
 window.addEventListener("resize", () => {
-  // Keep canvas resolution stable while CSS scales it.
   canvas.width = BASE_WIDTH;
   canvas.height = BASE_HEIGHT;
 });
 
 function renderGameToText() {
+  const held = getHeldParcel();
   const payload = {
     mode: state.mode,
     coord: "origin top-left, x right, y down",
-    player: {
-      x: Number(state.player.x.toFixed(1)),
-      y: Number(state.player.y.toFixed(1)),
-      r: state.player.r,
-      vx: Number(state.player.vx.toFixed(1)),
-      vy: Number(state.player.vy.toFixed(1)),
-    },
-    target: {
-      x: Number(state.target.x.toFixed(1)),
-      y: Number(state.target.y.toFixed(1)),
-      active: state.target.active,
-    },
-    energy: Number(state.energy.toFixed(1)),
-    shields: state.shields,
-    blinkCooldown: Number(state.blinkCooldown.toFixed(2)),
-    collected: state.collected,
-    goal: state.goal,
+    timeLeft: Number(state.timeLeft.toFixed(1)),
     score: state.score,
-    sparks: state.sparks.map((spark) => ({
-      x: Number(spark.x.toFixed(1)),
-      y: Number(spark.y.toFixed(1)),
-      r: spark.r,
+    sorted: state.sorted,
+    goal: state.goal,
+    lives: state.lives,
+    combo: state.combo,
+    selectedBin: {
+      index: state.selectedBin,
+      label: BINS[state.selectedBin].label,
+      type: BINS[state.selectedBin].type,
+    },
+    crane: {
+      x: Number(state.crane.x.toFixed(1)),
+      holding: held
+        ? {
+            id: held.id,
+            type: held.type,
+            label: TYPE_LABELS[held.type],
+          }
+        : null,
+    },
+    parcels: state.parcels.map((parcel) => ({
+      id: parcel.id,
+      type: parcel.type,
+      label: TYPE_LABELS[parcel.type],
+      x: Number(parcel.x.toFixed(1)),
+      y: Number(parcel.y.toFixed(1)),
+      grabbed: parcel.grabbed,
     })),
-    wraiths: state.wraiths.map((wraith) => ({
-      x: Number(wraith.x.toFixed(1)),
-      y: Number(wraith.y.toFixed(1)),
-      r: wraith.r,
-    })),
+    nextSpawnIn: Number(Math.max(0, state.spawnTimer).toFixed(2)),
   };
   return JSON.stringify(payload);
 }
 
 window.render_game_to_text = renderGameToText;
-
 window.advanceTime = (ms) => {
-  const stepMs = 1000 / 60;
-  const steps = Math.max(1, Math.round(ms / stepMs));
+  const steps = Math.max(1, Math.round(ms / (1000 / 60)));
   for (let i = 0; i < steps; i++) {
     step(1 / 60);
   }
 };
 
-resetGame();
+resetRound(true);
 requestAnimationFrame(loop);

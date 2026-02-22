@@ -30,8 +30,8 @@ catalog[1] = {
 catalog[2] = {
   day: 3,
   state: "open",
-  title: "Lantern Glide",
-  description: "Steer a wandering glow and blink through dusk.",
+  title: "Parcel Sort Sprint",
+  description: "Run the conveyor crane and sort boxes before the jam.",
   image: "./assets/day-03-lantern-glide-thumb.png",
   href: "./games/day-03-lantern-glide/",
 };

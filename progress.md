@@ -44,3 +44,7 @@ create game 1 in a sub folder today and build the site about it, it can be abotu
 - Updated Day 3 catalog card title/description in `app.js` to match the new game.
 - Ran local visual/state checks on Day 3 with Playwright client and manual adaptive script; confirmed pick/drop sorting works (`sorted=1`, `score=100`) and no console/page errors.
 - Refreshed Day 3 thumbnail from real gameplay capture (`assets/day-03-lantern-glide-thumb.png`).
+- Day 3 (Parcel Sort Sprint) hotfix pass: corrected conveyor visual direction to match parcel motion, added deterministic parcel sequence/spawn cadence/speed stages, and reduced queue pressure for more recoverable gameplay.
+- Improved Day 3 usability/clarity: larger pickup window + visible pickup guide, direct bin hotkeys (1/2/3 plus Q/E cycle), next-parcel preview, and stronger selected-bin highlighting.
+- Improved Day 3 render quality on Safari/Retina by switching to DPR-aware canvas backing resolution (sharper visuals while preserving canvas coordinates).
+- Re-ran `$WEB_GAME_CLIENT` Playwright validations for the patched parcel game and reviewed screenshots/state JSON in `output/web-game/day-03-parcel-fix*`; conveyor direction now visually matches movement and no console/page errors were emitted.

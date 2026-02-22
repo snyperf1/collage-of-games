@@ -27,6 +27,15 @@ catalog[1] = {
   href: "./games/day-02-orchard-wardens/",
 };
 
+catalog[2] = {
+  day: 3,
+  state: "open",
+  title: "Lantern Glide",
+  description: "Steer a wandering glow and blink through dusk.",
+  image: "./assets/day-03-lantern-glide-thumb.png",
+  href: "./games/day-03-lantern-glide/",
+};
+
 const grid = document.querySelector("#games-grid");
 const stats = document.querySelector("#stats");
 

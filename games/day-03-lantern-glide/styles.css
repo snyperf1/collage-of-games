@@ -1,0 +1,50 @@
+:root {
+  color-scheme: dark;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  background: #0a0c12;
+  color: #f6f0dd;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at top, #1a1d2c 0%, #07080d 65%);
+}
+
+.game-wrap {
+  width: min(100%, 1100px);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.back-link {
+  align-self: flex-start;
+  color: #f6f0dd;
+  text-decoration: none;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.back-link:hover {
+  color: #f4c661;
+}
+
+canvas {
+  width: min(100%, 960px);
+  height: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(244, 198, 97, 0.35);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  background: #0b0f18;
+}

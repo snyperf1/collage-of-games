@@ -34,3 +34,9 @@ create game 1 in a sub folder today and build the site about it, it can be abotu
 - Ran `$WEB_GAME_CLIENT` successfully against Day 2 and reviewed screenshots + text state from `output/web-game/day-02-fix*`; no JS console/page errors were emitted.
 - Replaced Day 2 thumbnail with a real square gameplay capture from Playwright output.
 - User preference recorded for future days: avoid default WASD-first game concepts; prioritize more novel/fun mechanics and alternative control styles.
+
+- Day 3 (Lantern Glide) created in `games/day-03-lantern-glide/` with mouse-first steering + blink, energy/shield system, sparks to collect, wraith hazards, HUD, overlays, and required `render_game_to_text` / `advanceTime` hooks.
+- Unlocked Day 3 card in `app.js` (thumbnail pending).
+- Playwright run for Day 3 failed to launch Chromium in this environment (MachPortRendezvous permission denied / crashpad); no screenshots or state JSON produced, so the Day 3 gameplay thumbnail is still missing.
+- Re-ran `$WEB_GAME_CLIENT` for Day 3 successfully after environment permission change; reviewed gameplay screenshots and `state-*.json` in `output/web-game/day-03-lantern-glide/` with no emitted errors.
+- Added real square Day 3 catalog thumbnail from Playwright gameplay capture: `assets/day-03-lantern-glide-thumb.png`.

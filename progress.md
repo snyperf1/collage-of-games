@@ -48,3 +48,8 @@ create game 1 in a sub folder today and build the site about it, it can be abotu
 - Improved Day 3 usability/clarity: larger pickup window + visible pickup guide, direct bin hotkeys (1/2/3 plus Q/E cycle), next-parcel preview, and stronger selected-bin highlighting.
 - Improved Day 3 render quality on Safari/Retina by switching to DPR-aware canvas backing resolution (sharper visuals while preserving canvas coordinates).
 - Re-ran `$WEB_GAME_CLIENT` Playwright validations for the patched parcel game and reviewed screenshots/state JSON in `output/web-game/day-03-parcel-fix*`; conveyor direction now visually matches movement and no console/page errors were emitted.
+- Day 4: Created new game `Orbit Hop Relay` in `games/day-04-orbit-hop/` with orbit hopping, beacon pickups, comets, HUD, overlays, fullscreen toggle, and deterministic hooks (`render_game_to_text`, `advanceTime`).
+- Day 4: Unlocked card in `app.js` and reserved thumbnail path `assets/day-04-orbit-hop-thumb.png`.
+- Playwright run for Day 4 failed to launch Chromium (MachPortRendezvous permission denied). Thumbnail + validation still pending.
+- Day 4 validation completed with `$WEB_GAME_CLIENT` using `file://` URL; reviewed gameplay screenshots and `state-*.json` in `output/web-game/day-04-orbit-hop` and `output/web-game/day-04-orbit-hop-restart` (movement/hops, pause/resume, restart, score/lives updates all visible; no error files generated).
+- Captured Day 4 square gameplay thumbnail at `assets/day-04-orbit-hop-thumb.png` from validated Playwright screenshot.

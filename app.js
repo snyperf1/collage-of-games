@@ -36,6 +36,15 @@ catalog[2] = {
   href: "./games/day-03-lantern-glide/",
 };
 
+catalog[3] = {
+  day: 4,
+  state: "open",
+  title: "Orbit Hop Relay",
+  description: "Hop between orbital rings to collect signal beacons.",
+  image: "./assets/day-04-orbit-hop-thumb.png",
+  href: "./games/day-04-orbit-hop/",
+};
+
 const grid = document.querySelector("#games-grid");
 const stats = document.querySelector("#stats");
 

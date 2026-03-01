@@ -45,6 +45,15 @@ catalog[3] = {
   href: "./games/day-04-fruit-flip-fiesta/",
 };
 
+catalog[4] = {
+  day: 5,
+  state: "open",
+  title: "Fruit Flip Fiesta+",
+  description: "A fast fruit emoji memory remix for Day 5.",
+  image: "./assets/day-05-fruit-flip-fiesta-thumb.png",
+  href: "./games/day-05-fruit-flip-fiesta/",
+};
+
 const grid = document.querySelector("#games-grid");
 const stats = document.querySelector("#stats");
 

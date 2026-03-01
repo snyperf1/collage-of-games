@@ -8,9 +8,6 @@ const BELT_H = 94;
 const RAIL_Y = 116;
 const PARCEL_W = 54;
 const PARCEL_H = 40;
-const MAX_ON_BELT = 4;
-const PICKUP_RADIUS_X = 46;
-const PICKUP_RADIUS_Y = 34;
 const BINS = [
   { type: 0, label: "SUN", x: 130, y: 158, w: 200, h: 106, color: "#f6a23c" },
   { type: 1, label: "WAVE", x: 380, y: 158, w: 200, h: 106, color: "#4fa7ff" },
@@ -19,9 +16,6 @@ const BINS = [
 
 const TYPE_COLORS = ["#f6a23c", "#4fa7ff", "#ef5d4a"];
 const TYPE_LABELS = ["SUN", "WAVE", "SPARK"];
-const PARCEL_PATTERN = [1, 0, 2, 1, 2, 0, 0, 1, 2, 2, 1, 0, 1, 0, 2, 1, 2, 0];
-const BELT_SPEED_STAGES = [92, 100, 108, 116, 124];
-const SPAWN_INTERVAL_STAGES = [1.6, 1.5, 1.38, 1.28, 1.18];
 
 const keys = new Set();
 const pointer = {
@@ -29,8 +23,6 @@ const pointer = {
   x: BASE_WIDTH / 2,
   y: BASE_HEIGHT / 2,
 };
-
-let renderScale = 1;
 
 let nextParcelId = 1;
 
@@ -44,17 +36,16 @@ const dustSpecks = Array.from({ length: 120 }, () => ({
 const state = {
   mode: "menu",
   time: 0,
-  timeLeft: 92,
+  timeLeft: 80,
   score: 0,
   sorted: 0,
-  goal: 15,
-  lives: 5,
+  goal: 18,
+  lives: 4,
   combo: 0,
   bestCombo: 0,
   beltOffset: 0,
   spawnTimer: 0,
   spawnEvery: 1.2,
-  patternIndex: 0,
   flash: 0,
   messageTimer: 0,
   message: "",
@@ -82,28 +73,18 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
-function configureCanvas() {
-  const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-  renderScale = dpr;
-  canvas.width = Math.round(BASE_WIDTH * dpr);
-  canvas.height = Math.round(BASE_HEIGHT * dpr);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.imageSmoothingEnabled = true;
-}
-
 function resetRound(toMenu = true) {
   state.mode = toMenu ? "menu" : "playing";
   state.time = 0;
-  state.timeLeft = 92;
+  state.timeLeft = 80;
   state.score = 0;
   state.sorted = 0;
-  state.lives = 5;
+  state.lives = 4;
   state.combo = 0;
   state.bestCombo = 0;
   state.beltOffset = 0;
-  state.spawnTimer = 0.95;
-  state.spawnEvery = SPAWN_INTERVAL_STAGES[0];
-  state.patternIndex = 0;
+  state.spawnTimer = 0.6;
+  state.spawnEvery = 1.2;
   state.flash = 0;
   state.messageTimer = 0;
   state.message = "";
@@ -118,18 +99,6 @@ function resetRound(toMenu = true) {
   pointer.y = BASE_HEIGHT / 2;
   pointer.active = false;
   nextParcelId = 1;
-}
-
-function difficultyStageIndex() {
-  return clamp(Math.floor(state.sorted / 3), 0, BELT_SPEED_STAGES.length - 1);
-}
-
-function currentBeltSpeed() {
-  return BELT_SPEED_STAGES[difficultyStageIndex()];
-}
-
-function currentSpawnInterval() {
-  return SPAWN_INTERVAL_STAGES[difficultyStageIndex()];
 }
 
 function startGame() {
@@ -171,20 +140,17 @@ function spawnParticles(x, y, color, count, force = 1) {
 }
 
 function createParcel() {
-  const type = PARCEL_PATTERN[state.patternIndex % PARCEL_PATTERN.length];
-  state.patternIndex += 1;
-  const speed = currentBeltSpeed();
-  const id = nextParcelId++;
+  const type = Math.floor(rand(0, 3));
   return {
-    id,
+    id: nextParcelId++,
     type,
-    x: -PARCEL_W - 32,
-    y: BELT_Y + BELT_H / 2,
+    x: -PARCEL_W - rand(20, 120),
+    y: BELT_Y + BELT_H / 2 + rand(-6, 6),
     w: PARCEL_W,
     h: PARCEL_H,
-    vx: speed,
-    bob: (id * Math.PI) / 7,
-    rot: ((id % 7) - 3) * 0.01,
+    vx: rand(118, 158),
+    bob: rand(0, Math.PI * 2),
+    rot: rand(-0.06, 0.06),
     grabbed: false,
     scored: false,
   };
@@ -192,14 +158,6 @@ function createParcel() {
 
 function getHeldParcel() {
   return state.parcels.find((parcel) => parcel.id === state.crane.holdId) || null;
-}
-
-function previewParcelTypes(count = 4) {
-  const next = [];
-  for (let i = 0; i < count; i++) {
-    next.push(PARCEL_PATTERN[(state.patternIndex + i) % PARCEL_PATTERN.length]);
-  }
-  return next;
 }
 
 function cycleBin(dir) {
@@ -211,19 +169,14 @@ function updateCrane(dt) {
   if (keys.has("ArrowLeft")) move -= 1;
   if (keys.has("ArrowRight")) move += 1;
 
-  const maxSpeed = 480;
+  const maxSpeed = 420;
   if (move !== 0) {
     state.crane.vx = move * maxSpeed;
   } else {
+    state.crane.vx *= Math.pow(0.18, dt * 6);
     if (pointer.active) {
       const diff = pointer.x - state.crane.x;
-      if (Math.abs(diff) < 5) {
-        state.crane.vx = 0;
-      } else {
-        state.crane.vx = clamp(diff * 8, -maxSpeed, maxSpeed);
-      }
-    } else {
-      state.crane.vx *= Math.pow(0.12, dt * 7);
+      state.crane.vx = lerp(state.crane.vx, clamp(diff * 7, -maxSpeed, maxSpeed), Math.min(1, dt * 5));
     }
   }
 
@@ -244,7 +197,7 @@ function updateParcels(dt) {
     }
 
     parcel.x += parcel.vx * dt;
-    parcel.y = BELT_Y + BELT_H / 2 + Math.sin(parcel.bob) * 2;
+    parcel.y = BELT_Y + BELT_H / 2 + Math.sin(parcel.bob) * 3;
 
     if (parcel.x - parcel.w / 2 > BASE_WIDTH + 12) {
       state.parcels.splice(i, 1);
@@ -273,19 +226,16 @@ function updateParticles(dt) {
 
 function spawnLoop(dt) {
   state.spawnTimer -= dt;
-  if (state.spawnTimer > 0) {
-    return;
-  }
+  if (state.spawnTimer > 0) return;
 
   const activeOnBelt = state.parcels.filter((p) => !p.grabbed).length;
-  if (activeOnBelt >= MAX_ON_BELT) {
-    state.spawnTimer = 0.22;
-    return;
+  if (activeOnBelt < 7) {
+    state.parcels.push(createParcel());
   }
 
-  state.parcels.push(createParcel());
-  state.spawnEvery = currentSpawnInterval();
-  state.spawnTimer = state.spawnEvery;
+  const tension = clamp(state.sorted / state.goal, 0, 1);
+  state.spawnEvery = 1.15 - tension * 0.42;
+  state.spawnTimer = rand(state.spawnEvery * 0.8, state.spawnEvery * 1.15);
 }
 
 function update(dt) {
@@ -295,7 +245,7 @@ function update(dt) {
   state.timeLeft = Math.max(0, state.timeLeft - dt);
   state.flash = Math.max(0, state.flash - dt);
   state.messageTimer = Math.max(0, state.messageTimer - dt);
-  state.beltOffset = (state.beltOffset + currentBeltSpeed() * dt) % 48;
+  state.beltOffset = (state.beltOffset + 140 * dt) % 48;
 
   updateCrane(dt);
   spawnLoop(dt);
@@ -323,7 +273,7 @@ function parcelUnderCrane() {
     if (parcel.grabbed) continue;
     const dx = Math.abs(parcel.x - state.crane.x);
     const dy = Math.abs(parcel.y - (BELT_Y + BELT_H / 2));
-    if (dx < PICKUP_RADIUS_X && dy < PICKUP_RADIUS_Y && dx < bestDist) {
+    if (dx < 38 && dy < 30 && dx < bestDist) {
       best = parcel;
       bestDist = dx;
     }
@@ -380,7 +330,7 @@ function resolveDrop(binIndex) {
   } else {
     state.lives -= 1;
     state.combo = 0;
-    state.score = Math.max(0, state.score - 15);
+    state.score = Math.max(0, state.score - 30);
     state.flash = 0.24;
     showMessage(`Wrong bin for ${TYPE_LABELS[parcel.type]}`);
     spawnParticles(bin.x + bin.w / 2, bin.y + bin.h / 2, "#ef5d4a", 14, 0.9);
@@ -497,17 +447,13 @@ function drawBins() {
     const active = i === state.selectedBin;
     const shadowOffset = active ? 8 : 4;
 
-    ctx.fillStyle = active ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.82)";
+    ctx.fillStyle = active ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.72)";
     ctx.shadowColor = active ? "rgba(0,0,0,0.12)" : "rgba(0,0,0,0.06)";
     ctx.shadowBlur = active ? 18 : 10;
     ctx.shadowOffsetY = shadowOffset;
     drawRoundedRect(bin.x, bin.y, bin.w, bin.h, 16);
     ctx.fill();
     ctx.shadowColor = "transparent";
-
-    ctx.fillStyle = active ? `${bin.color}18` : "rgba(255,255,255,0)";
-    drawRoundedRect(bin.x + 4, bin.y + 4, bin.w - 8, bin.h - 8, 14);
-    ctx.fill();
 
     ctx.lineWidth = active ? 3 : 1.6;
     ctx.strokeStyle = active ? bin.color : "rgba(60, 46, 28, 0.18)";
@@ -521,7 +467,7 @@ function drawBins() {
     ctx.fillStyle = "rgba(60, 45, 25, 0.55)";
     ctx.font = "500 11px Space Grotesk";
     ctx.textAlign = "left";
-    ctx.fillText(active ? "Selected bin" : "Drop zone", bin.x + 62, bin.y + 58);
+    ctx.fillText(active ? "Selected" : "Drop zone", bin.x + 62, bin.y + 58);
     ctx.font = "700 14px Space Grotesk";
     ctx.textAlign = "center";
 
@@ -583,11 +529,6 @@ function drawRailAndCrane() {
 
 function drawConveyor() {
   ctx.save();
-  ctx.fillStyle = "rgba(32, 24, 16, 0.08)";
-  ctx.beginPath();
-  ctx.ellipse(BASE_WIDTH / 2, BELT_Y + BELT_H + 16, 380, 20, 0, 0, Math.PI * 2);
-  ctx.fill();
-
   ctx.fillStyle = "#2b2f39";
   drawRoundedRect(48, BELT_Y, BASE_WIDTH - 96, BELT_H, 22);
   ctx.fill();
@@ -602,21 +543,9 @@ function drawConveyor() {
   ctx.clip();
   for (let x = -64; x < BASE_WIDTH + 64; x += 48) {
     ctx.fillStyle = "rgba(255,255,255,0.05)";
-    ctx.fillRect(x + state.beltOffset, BELT_Y + 16, 20, BELT_H - 32);
+    ctx.fillRect(x - state.beltOffset, BELT_Y + 16, 20, BELT_H - 32);
     ctx.fillStyle = "rgba(0,0,0,0.06)";
-    ctx.fillRect(x + 20 + state.beltOffset, BELT_Y + 16, 10, BELT_H - 32);
-  }
-
-  for (let x = 88; x < BASE_WIDTH - 80; x += 120) {
-    const arrowX = ((x + state.beltOffset * 0.9) % (BASE_WIDTH + 70)) - 35;
-    const cy = BELT_Y + BELT_H / 2;
-    ctx.fillStyle = "rgba(255,255,255,0.08)";
-    ctx.beginPath();
-    ctx.moveTo(arrowX - 10, cy - 8);
-    ctx.lineTo(arrowX + 6, cy);
-    ctx.lineTo(arrowX - 10, cy + 8);
-    ctx.closePath();
-    ctx.fill();
+    ctx.fillRect(x + 20 - state.beltOffset, BELT_Y + 16, 10, BELT_H - 32);
   }
   ctx.restore();
 
@@ -630,32 +559,6 @@ function drawConveyor() {
     ctx.beginPath();
     ctx.arc(cx, BELT_Y + BELT_H / 2, 4, 0, Math.PI * 2);
     ctx.fill();
-  }
-  ctx.restore();
-}
-
-function drawPickupGuide() {
-  if (state.mode !== "playing") return;
-  const holding = state.crane.holdId != null;
-  const y = BELT_Y + BELT_H / 2;
-
-  ctx.save();
-  ctx.strokeStyle = holding ? "rgba(79,167,255,0.55)" : "rgba(246,162,60,0.45)";
-  ctx.fillStyle = holding ? "rgba(79,167,255,0.08)" : "rgba(246,162,60,0.08)";
-  ctx.lineWidth = 2;
-  drawRoundedRect(state.crane.x - 44, y - 22, 88, 44, 12);
-  ctx.fill();
-  ctx.stroke();
-
-  if (holding) {
-    const bin = BINS[state.selectedBin];
-    ctx.setLineDash([6, 6]);
-    ctx.strokeStyle = "rgba(79,167,255,0.45)";
-    ctx.beginPath();
-    ctx.moveTo(state.crane.x, 274);
-    ctx.lineTo(bin.x + bin.w / 2, bin.y + bin.h + 4);
-    ctx.stroke();
-    ctx.setLineDash([]);
   }
   ctx.restore();
 }
@@ -754,8 +657,8 @@ function drawHud() {
 
   ctx.fillStyle = "rgba(33,27,20,0.65)";
   ctx.font = "500 12px Space Grotesk";
-  ctx.fillText("Move: arrows / mouse • Pick/Drop: Space / click • Bin: 1/2/3 or Q/E", 370, 38);
-  ctx.fillText(`Conveyor -> ${Math.round(currentBeltSpeed())} px/s • Queue cap ${MAX_ON_BELT} • Pause: P • Restart: R • Fullscreen: F`, 370, 58);
+  ctx.fillText("Move: arrows / mouse • Pick/Drop: Space / click • Bin: A/B", 370, 38);
+  ctx.fillText("Pause: P • Restart: R • Fullscreen: F", 370, 58);
 
   if (state.messageTimer > 0) {
     const alpha = Math.min(1, state.messageTimer / 0.4);
@@ -772,20 +675,6 @@ function drawHud() {
     ctx.globalAlpha = 1;
   }
 
-  const preview = previewParcelTypes(5);
-  ctx.fillStyle = "rgba(33,27,20,0.6)";
-  ctx.font = "700 11px Space Grotesk";
-  ctx.fillText("NEXT", 634, 102);
-  for (let i = 0; i < preview.length; i++) {
-    const px = 672 + i * 38;
-    drawRoundedRect(px - 14, 85, 28, 28, 8);
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.fill();
-    ctx.strokeStyle = "rgba(33,27,20,0.1)";
-    ctx.stroke();
-    drawSticker(preview[i], px, 99, 6.5);
-  }
-
   ctx.restore();
 }
 
@@ -796,8 +685,8 @@ function drawBinSelectionArrows() {
   ctx.textAlign = "center";
   ctx.font = "700 12px Space Grotesk";
   ctx.fillStyle = "rgba(33,27,20,0.55)";
-  ctx.fillText("Q", bin.x + 18, y);
-  ctx.fillText("E", bin.x + bin.w - 18, y);
+  ctx.fillText("A", bin.x + 18, y);
+  ctx.fillText("B", bin.x + bin.w - 18, y);
   ctx.strokeStyle = "rgba(33,27,20,0.25)";
   ctx.beginPath();
   ctx.moveTo(bin.x + 28, y - 4);
@@ -837,7 +726,7 @@ function drawOverlay() {
     subtitle = `Sorted ${state.sorted} parcels with score ${state.score}.`;
   } else if (state.mode === "lost") {
     title = "Warehouse Jam";
-    subtitle = `Sorted ${state.sorted}/${state.goal}. Pattern resets each run for deterministic retries.`;
+    subtitle = `Sorted ${state.sorted}/${state.goal}. Press Space to restart.`;
   }
 
   ctx.textAlign = "center";
@@ -850,9 +739,9 @@ function drawOverlay() {
 
   ctx.font = "500 15px Space Grotesk";
   ctx.fillStyle = "rgba(32,25,18,0.8)";
-  ctx.fillText("Arrow keys or mouse move the crane. Use 1/2/3 or Q/E to pick a bin.", BASE_WIDTH / 2, 275);
+  ctx.fillText("Arrow keys or mouse move the crane. A/B switches the target bin.", BASE_WIDTH / 2, 275);
   ctx.fillText("Space or click picks a box, then drops it into the selected bin.", BASE_WIDTH / 2, 302);
-  ctx.fillText(`Sort ${state.goal} parcels before time runs out. Misses and wrong bins cost lives.`, BASE_WIDTH / 2, 329);
+  ctx.fillText("Sort 18 parcels before time runs out. Misses and wrong bins cost lives.", BASE_WIDTH / 2, 329);
 
   ctx.fillStyle = "#f6a23c";
   drawRoundedRect(355, 350, 250, 34, 12);
@@ -878,7 +767,6 @@ function render() {
   drawBins();
   drawRailAndCrane();
   drawConveyor();
-  drawPickupGuide();
   drawParcels();
   drawParticles();
   drawBinSelectionArrows();
@@ -901,8 +789,8 @@ function loop(now) {
 
 function toCanvasCoords(event) {
   const rect = canvas.getBoundingClientRect();
-  const scaleX = BASE_WIDTH / rect.width;
-  const scaleY = BASE_HEIGHT / rect.height;
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
   return {
     x: (event.clientX - rect.left) * scaleX,
     y: (event.clientY - rect.top) * scaleY,
@@ -938,7 +826,7 @@ canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 
 window.addEventListener("keydown", (event) => {
   const code = event.code;
-  if (["ArrowLeft", "ArrowRight", "Space", "Enter", "Digit1", "Digit2", "Digit3"].includes(code)) {
+  if (["ArrowLeft", "ArrowRight", "Space", "Enter"].includes(code)) {
     event.preventDefault();
   }
 
@@ -946,15 +834,9 @@ window.addEventListener("keydown", (event) => {
 
   if (event.repeat) return;
 
-  if (code === "Digit1") {
-    state.selectedBin = 0;
-  } else if (code === "Digit2") {
-    state.selectedBin = 1;
-  } else if (code === "Digit3") {
-    state.selectedBin = 2;
-  } else if (code === "KeyQ" || code === "KeyA" || code === "ArrowUp") {
+  if (code === "KeyA" || code === "ArrowUp") {
     cycleBin(-1);
-  } else if (code === "KeyE" || code === "KeyB" || code === "ArrowDown") {
+  } else if (code === "KeyB" || code === "ArrowDown") {
     cycleBin(1);
   } else if (code === "Space" || code === "Enter") {
     attemptAction();
@@ -980,7 +862,8 @@ window.addEventListener("blur", () => {
 });
 
 window.addEventListener("resize", () => {
-  configureCanvas();
+  canvas.width = BASE_WIDTH;
+  canvas.height = BASE_HEIGHT;
 });
 
 function renderGameToText() {
@@ -1018,8 +901,6 @@ function renderGameToText() {
       grabbed: parcel.grabbed,
     })),
     nextSpawnIn: Number(Math.max(0, state.spawnTimer).toFixed(2)),
-    beltSpeed: currentBeltSpeed(),
-    nextTypes: previewParcelTypes(5).map((type) => TYPE_LABELS[type]),
   };
   return JSON.stringify(payload);
 }
@@ -1033,5 +914,4 @@ window.advanceTime = (ms) => {
 };
 
 resetRound(true);
-configureCanvas();
 requestAnimationFrame(loop);

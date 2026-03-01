@@ -39,10 +39,19 @@ catalog[2] = {
 catalog[3] = {
   day: 4,
   state: "open",
-  title: "Orbit Hop Relay",
-  description: "Hop between orbital rings to collect signal beacons.",
-  image: "./assets/day-04-orbit-hop-thumb.png",
-  href: "./games/day-04-orbit-hop/",
+  title: "Fruit Flip Fiesta",
+  description: "Match fruit emoji pairs in a bright memory-card challenge.",
+  image: "./assets/day-04-fruit-flip-fiesta-thumb.png",
+  href: "./games/day-04-fruit-flip-fiesta/",
+};
+
+catalog[4] = {
+  day: 5,
+  state: "open",
+  title: "Fruit Flip Fiesta+",
+  description: "A fast fruit emoji memory remix for Day 5.",
+  image: "./assets/day-05-fruit-flip-fiesta-thumb.png",
+  href: "./games/day-05-fruit-flip-fiesta/",
 };
 
 const grid = document.querySelector("#games-grid");

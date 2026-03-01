@@ -1,0 +1,54 @@
+@import url("https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Outfit:wght@400;600;700&display=swap");
+
+:root {
+  --bg: #fbf7e8;
+  --text: #3d2f1e;
+  --panel: rgba(255, 254, 248, 0.84);
+  --line: rgba(87, 66, 33, 0.24);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Outfit", "Trebuchet MS", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(700px 360px at -5% -10%, rgba(255, 199, 95, 0.42), transparent 70%),
+    radial-gradient(680px 340px at 105% 8%, rgba(255, 131, 107, 0.36), transparent 68%),
+    radial-gradient(760px 400px at 45% 118%, rgba(132, 220, 198, 0.32), transparent 67%),
+    linear-gradient(150deg, #fff8dc, #fff4d1 45%, #ffeec6);
+}
+
+.game-wrap {
+  width: min(1080px, calc(100% - 1.2rem));
+  margin: 1rem auto 2rem;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.45rem 0.78rem;
+  background: var(--panel);
+  margin-bottom: 0.75rem;
+  box-shadow: 0 8px 24px rgba(90, 63, 23, 0.12);
+}
+
+#game {
+  width: 100%;
+  max-height: calc(100vh - 104px);
+  display: block;
+  margin: 0 auto;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: #fff6de;
+  box-shadow: 0 24px 56px rgba(84, 59, 27, 0.22);
+  touch-action: none;
+}

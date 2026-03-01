@@ -36,6 +36,15 @@ catalog[2] = {
   href: "./games/day-03-lantern-glide/",
 };
 
+catalog[3] = {
+  day: 4,
+  state: "open",
+  title: "Fruit Flip Fiesta",
+  description: "Match fruit emoji pairs in a bright memory-card challenge.",
+  image: "./assets/day-04-fruit-flip-fiesta-thumb.png",
+  href: "./games/day-04-fruit-flip-fiesta/",
+};
+
 const grid = document.querySelector("#games-grid");
 const stats = document.querySelector("#stats");
 
